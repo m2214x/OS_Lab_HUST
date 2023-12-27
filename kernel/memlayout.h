@@ -9,7 +9,7 @@
 #define KERN_BASE 0x80000000
 
 // default stack size
-#define STACK_SIZE 4096
+#define STACK_SIZE 65536
 
 // virtual address of stack top of user process
 #define USER_STACK_TOP 0x7ffff000

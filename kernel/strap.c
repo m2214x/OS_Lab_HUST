@@ -12,6 +12,8 @@
 
 #include "spike_interface/spike_utils.h"
 
+#include "memlayout.h"
+
 //
 // handling the syscalls. will call do_syscall() defined in kernel/syscall.c
 //
@@ -60,10 +62,21 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // dynamically increase application stack.
       // hint: first allocate a new physical page, and then, maps the new page to the
       // virtual address that causes the page fault.
-      // panic( "You need to implement the operations that actually handle the page fault in lab2_3.\n" );
+      // 人为划分堆和栈的界限,如果缺页地址在栈的范围内（即栈顶-栈空间到栈顶之间），则分配一个新的物理页，然后将新页映射到缺页地址
+      // 如果缺页地址不在栈的范围内，则panic，输出地址无法到达的信息
       {
-        void* pa = alloc_page();
-        user_vm_map((pagetable_t)current->pagetable, stval, 8, (uint64)pa, prot_to_type(PROT_WRITE | PROT_READ, 1));
+        int flag=0;
+        if(stval > USER_STACK_TOP - STACK_SIZE && stval <= USER_STACK_TOP){ //stack
+            flag=1;
+        }
+        if(flag){
+          void* pa = alloc_page();
+          user_vm_map((pagetable_t)current->pagetable, stval, 1, (uint64)pa, prot_to_type(PROT_WRITE | PROT_READ, 1));
+        }
+        else{
+          // sprint("this address is not available!\n");
+          panic("this address is not available!");
+        }
       }
 
       break;
