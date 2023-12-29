@@ -27,4 +27,9 @@ void switch_to(process*);
 
 extern process* current;
 
+extern uint64 symtab_addr_elf;
+extern uint64 symtab_size_elf;
+extern uint64 strtab_addr_elf;
+extern uint64 strtab_size_elf;
+
 #endif

@@ -8,6 +8,9 @@
 #include "riscv.h"
 #include "spike_interface/spike_utils.h"
 
+
+
+
 typedef struct elf_info_t {
   spike_file_t *f;
   process *p;
@@ -101,6 +104,56 @@ static size_t parse_args(arg_buf *arg_bug_msg) {
   return pk_argc - arg;
 }
 
+
+// 写函数，用以把elf文件中所需要的内容读出来，用以加载函数名等过程的使用
+elf_status load_section_header(elf_ctx *ctx)
+{
+  // 读取节头表的偏移地址，以及节头表总的大小
+  uint64 shdr_off = ctx->ehdr.shoff;
+  uint64 shdr_size = ctx->ehdr.shentsize * ctx->ehdr.shnum;
+  // 找到节头表的位置
+  uint64 shdr_start = (uint64)(&ctx->ehdr) + ctx->ehdr.shoff;
+  // 为新建的节头表分配空间
+  void *shdr_new = elf_alloc_mb(ctx, shdr_start, shdr_start, shdr_size);
+
+  // 读取节头表的内容,保证正确以后进入下一步的读取
+  if (elf_fpread(ctx, shdr_new, shdr_size, shdr_off) != shdr_size)
+    return EL_EIO;
+  sprint("shdr_new:%lx\n",shdr_new);
+  //获取symtab和strtab的序号
+  uint64 strtab_ndx = ctx->ehdr.shstrndx;
+  uint64 symtab_ndx = strtab_ndx - 1;
+
+  //获取symtab和strtab的偏移地址
+  uint64 strtab_off = ((elf_section_header *)(shdr_new + (strtab_ndx-1)*sizeof(elf_section_header)))->offset;
+  uint64 symtab_off = ((elf_section_header *)(shdr_new + (symtab_ndx-1)*sizeof(elf_section_header)))->offset;
+
+  //为symtab和strtab分配空间
+  uint64 strtab_addr = (uint64)(&ctx->ehdr) + strtab_off;
+  uint64 symtab_addr = (uint64)(&ctx->ehdr) + symtab_off;
+
+  //获取symtab和strtab的大小
+  uint64 strtab_size = ((elf_section_header *)(shdr_new + (strtab_ndx-1)*sizeof(elf_section_header)))->size;
+  uint64 symtab_size = ((elf_section_header *)(shdr_new + (symtab_ndx-1)*sizeof(elf_section_header)))->size;
+
+  //将symtab和strtab的内容读取到内存中
+  uint64 *strtab_new = elf_alloc_mb(ctx, strtab_addr, strtab_addr, strtab_size);
+  uint64 *symtab_new = elf_alloc_mb(ctx, symtab_addr, symtab_addr, symtab_size);
+
+  if (elf_fpread(ctx, strtab_new, strtab_size, strtab_off) != strtab_size || elf_fpread(ctx, symtab_new, symtab_size, symtab_off) != symtab_size)
+    return EL_EIO;
+  
+  //将symtab和strtab的地址和大小存入全局变量中
+  symtab_addr_elf = symtab_addr;
+  strtab_addr_elf = strtab_addr;
+  symtab_size_elf = symtab_size;
+  strtab_size_elf = strtab_size;
+
+
+  return EL_OK;
+
+}
+
 //
 // load the elf of user application, by using the spike file interface.
 //
@@ -130,11 +183,20 @@ void load_bincode_from_host_elf(process *p) {
   // load elf. elf_load() is defined above.
   if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
 
+
+
   // entry (virtual, also physical in lab1_x) address
   p->trapframe->epc = elfloader.ehdr.entry;
+
+  if (load_section_header(&elfloader) != EL_OK)
+    panic("fail to load section header.\n");
 
   // close the host spike file
   spike_file_close( info.f );
 
+
+
   sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
 }
+
+

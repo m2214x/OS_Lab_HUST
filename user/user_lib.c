@@ -49,3 +49,8 @@ int printu(const char* s, ...) {
 int exit(int code) {
   return do_user_call(SYS_user_exit, code, 0, 0, 0, 0, 0, 0); 
 }
+
+//lab1_challeng1:添加main.c中调用的print_backtrace函数
+int print_backtrace(int n){
+  return do_user_call(SYS_user_backtrace, n, 0, 0, 0, 0, 0, 0);
+}

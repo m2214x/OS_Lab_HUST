@@ -8,7 +8,16 @@
 #define SYS_user_base 64
 #define SYS_user_print (SYS_user_base + 0)
 #define SYS_user_exit (SYS_user_base + 1)
+//added by lab1_challeng1
+#define SYS_user_backtrace (SYS_user_base + 2)
+
+extern uint64 symtab_addr_elf;
+extern uint64 symtab_size_elf;
+extern uint64 strtab_addr_elf;
+extern uint64 strtab_size_elf;
 
 long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, long a7);
+
+
 
 #endif

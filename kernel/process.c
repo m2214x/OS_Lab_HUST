@@ -19,6 +19,11 @@
 extern char smode_trap_vector[];
 extern void return_to_user(trapframe*);
 
+uint64 symtab_addr_elf = 0;
+uint64 symtab_size_elf = 0;
+uint64 strtab_addr_elf = 0;
+uint64 strtab_size_elf = 0;
+
 // current points to the currently running user-mode application.
 process* current = NULL;
 
