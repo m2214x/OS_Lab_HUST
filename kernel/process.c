@@ -263,6 +263,9 @@ int do_fork( process* parent)
       //此处代码基本可以参考lab3_1的代码
       case DATA_SEGMENT:
       {
+        child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
+        child->mapped_info[child->total_mapped_region].npages = parent->mapped_info[i].npages;
+        child->mapped_info[child->total_mapped_region].seg_type = DATA_SEGMENT;
         for(int j=0;j<child->mapped_info[child->total_mapped_region].npages;j++)
         {
           uint64 child_pa = (uint64)alloc_page();
@@ -271,9 +274,7 @@ int do_fork( process* parent)
         }
         
         // after mapping, register the vm region (do not delete codes below!)
-        child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
-        child->mapped_info[child->total_mapped_region].npages = parent->mapped_info[i].npages;
-        child->mapped_info[child->total_mapped_region].seg_type = DATA_SEGMENT;
+        
         child->total_mapped_region++;
         break;
       }
