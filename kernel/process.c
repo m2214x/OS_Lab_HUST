@@ -164,6 +164,18 @@ int free_process( process* proc ) {
   // but for proxy kernel, it (memory leaking) may NOT be a really serious issue,
   // as it is different from regular OS, which needs to run 7x24.
   proc->status = ZOMBIE;
+  for(int i=0;i<NPROC;i++)
+  {
+    //如果进程i的status为BLOCKED
+    if(procs[i].status == BLOCKED){
+      //如果进程i的waiting_pid为proc的pid，或者进程i的waiting_pid为-1且proc是进程i的父进程
+      //第一种情况对应着寻找指定的子进程，第二种情况对应着寻找到了某一个子进程
+      if(procs[i].waiting_pid == proc->pid || (procs[i].waiting_pid == -1 && proc->parent == &procs[i])){
+        procs[i].status = READY;
+        insert_to_ready_queue(&procs[i]);
+      }
+    }
+  }
 
   return 0;
 }
@@ -247,6 +259,24 @@ int do_fork( process* parent)
         child->total_mapped_region++;
         }
         break;
+      //TODO (lab3_challeng1_wait) : implment the mapping of child data segment to parent's
+      //此处代码基本可以参考lab3_1的代码
+      case DATA_SEGMENT:
+      {
+        for(int j=0;j<child->mapped_info[child->total_mapped_region].npages;j++)
+        {
+          uint64 child_pa = (uint64)alloc_page();
+          memcpy((void*)child_pa,(void*)lookup_pa(parent->pagetable,parent->mapped_info[i].va+j*PGSIZE),PGSIZE);
+          user_vm_map((pagetable_t)child->pagetable,parent->mapped_info[i].va+j*PGSIZE,PGSIZE,child_pa,prot_to_type(PROT_WRITE | PROT_READ,1));
+        }
+        
+        // after mapping, register the vm region (do not delete codes below!)
+        child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
+        child->mapped_info[child->total_mapped_region].npages = parent->mapped_info[i].npages;
+        child->mapped_info[child->total_mapped_region].seg_type = DATA_SEGMENT;
+        child->total_mapped_region++;
+        break;
+      }
     }
   }
 
@@ -257,3 +287,4 @@ int do_fork( process* parent)
 
   return child->pid;
 }
+

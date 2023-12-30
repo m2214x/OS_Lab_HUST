@@ -16,6 +16,9 @@
 
 #include "spike_interface/spike_utils.h"
 
+extern process procs[NPROC];
+
+
 //
 // implement the SYS_user_print syscall
 //
@@ -98,6 +101,38 @@ ssize_t sys_user_yield() {
 }
 
 //
+// kerenl entry point of wait. added @lab3_challenge1
+//
+ssize_t sys_user_wait(int pid) {
+  // TODO (lab3_challenge1): implment the syscall of wait.
+  // hint: the functionality of wait is to wait for a child process to exit.
+  // therefore, we should set the status of currently running process to WAITING,
+  // and finally, schedule a READY process to run.
+  // sprint("curret pid: %d\n", current->pid);
+  if(pid == -1){
+    current->status = BLOCKED;
+    current->waiting_pid = -1;
+    schedule();
+    // sprint("curret pid: %d\n", current->pid);
+    return current->waiting_pid;
+  }
+  else if(pid >0){
+    //首先判断pid是否为当前进程的子进程，如果不是直接返回-1
+    if(procs[pid].parent->pid != current->pid){
+      return -1;
+    }
+    //确认了pid是当前进程的子进程，等待的pid则直接设置为指定值，等待子进程返回
+    current->status = BLOCKED;
+    current->waiting_pid = pid;
+    schedule();
+    // sprint("curret pid: %d\n", current->pid);
+    return current->waiting_pid;
+  }
+  else
+    return -1;
+}
+
+//
 // [a0]: the syscall number; [a1] ... [a7]: arguments to the syscalls.
 // returns the code of success, (e.g., 0 means success, fail for otherwise)
 //
@@ -116,6 +151,9 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
       return sys_user_fork();
     case SYS_user_yield:
       return sys_user_yield();
+    // added @lab3_challenge1
+    case SYS_user_wait:
+      return sys_user_wait(a1);
     default:
       panic("Unknown syscall %ld \n", a0);
   }
