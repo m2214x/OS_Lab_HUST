@@ -24,6 +24,10 @@ int do_closedir(int fd);
 int do_link(char *oldpath, char *newpath);
 int do_unlink(char *path);
 
+// added @lab4_chanllenge1, get current working directory and change current working directory
+int do_rcwd(uint64 path);
+int do_ccwd(uint64 path);
+
 void fs_init(void);
 
 // data structure that manages all openned files in a PCB

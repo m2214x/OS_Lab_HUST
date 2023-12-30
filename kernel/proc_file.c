@@ -14,6 +14,7 @@
 #include "spike_interface/spike_utils.h"
 #include "util/functions.h"
 #include "util/string.h"
+#include <stdio.h>
 
 //
 // initialize file system
@@ -80,8 +81,12 @@ struct file *get_opened_file(int fd) {
 // return: -1 on failure; non-zero file-descriptor on success.
 //
 int do_open(char *pathname, int flags) {
+  // sprint ("do_open: %s\n", pathname);
   struct file *opened_file = NULL;
-  if ((opened_file = vfs_open(pathname, flags)) == NULL) return -1;
+  process *proc = current;
+  do_ccwd((uint64)pathname);
+  char * path =  proc->pfiles->cwd->name;
+  if ((opened_file = vfs_open(path, flags)) == NULL) return -1;
 
   int fd = 0;
   if (current->pfiles->nfiles >= MAX_FILES) {
@@ -95,6 +100,9 @@ int do_open(char *pathname, int flags) {
 
   // initialize this file structure
   memcpy(pfile, opened_file, sizeof(struct file));
+  // sprint("pathname:%s\n",pathname);
+  if(pathname[0] == '.' && pathname[1] == '/')
+    do_ccwd((uint64)"..");
 
   ++current->pfiles->nfiles;
   return fd;
@@ -220,4 +228,70 @@ int do_link(char *oldpath, char *newpath) {
 //
 int do_unlink(char *path) {
   return vfs_unlink(path);
+}
+
+
+// added @lab4_chanllenge1, read current working directory, through bufva
+int do_rcwd(uint64 path) {
+  memcpy((void*)path, current->pfiles->cwd->name, strlen(current->pfiles->cwd->name));
+  return 0;
+}
+
+
+// added @lab4_chanllenge1, change current working directory, through bufva
+int do_ccwd(uint64 path) {
+  char * cwd_path = (char*)path;
+  char pathpa[MAX_PATH_LEN];
+  memset(pathpa,0,MAX_PATH_LEN);
+  memcpy(pathpa,current->pfiles->cwd->name,strlen(current->pfiles->cwd->name));
+  // sprint("target path:%s\n",cwd_path);
+  // sprint("now path: %s\n",pathpa);
+  // 绝对路径寻址
+  if(cwd_path[0] == '/'){
+    memcpy(current->pfiles->cwd->name,pathpa,strlen(pathpa));
+  }
+  else if(cwd_path[0] == '.'){
+    // 相对路径寻址
+    if(cwd_path[1] == '.'){
+      // 返回上一级目录
+      int len = strlen(pathpa);
+      if(len == 1){
+        // 当前目录为根目录
+        sprint("current path is root\n");
+        return 0;
+      }
+      for(int i = len-1;i>=0;i--){
+        if(pathpa[i] == '/'){
+          pathpa[i] = '\0';
+          break;
+        }
+        pathpa[i] = '\0';
+      }
+      len = strlen(pathpa);
+      if(len <= 1){
+        strcpy(pathpa,"/");
+        len=1;
+      }
+      // sprint("now path: %s\n",pathpa);
+      memset(current->pfiles->cwd->name,0,MAX_PATH_LEN);
+      memcpy(current->pfiles->cwd->name,pathpa,len);
+      // sprint("changed_path: %s\n",current->pfiles->cwd->name);
+    }
+    else{
+      // 相对于本目录，进入下一级目录
+      int len_1 = strlen(cwd_path);
+      int len_2 = strlen(pathpa);
+      // sprint("len_1:%d,len_2:%d\n",len_1,len_2);
+      if(len_2 == 1) len_2 = 0;
+      for(int i=1;i<len_1;i++){
+        pathpa[len_2++] = cwd_path[i];
+      }
+      pathpa[len_2] = '\0';
+      // sprint("now path: %s\n",pathpa);
+      memset(current->pfiles->cwd->name,0,MAX_PATH_LEN);
+      memcpy(current->pfiles->cwd->name,pathpa,len_2);
+    }
+  }
+  // sprint("changed_path: %s\n",current->pfiles->cwd->name);
+  return 0; 
 }
