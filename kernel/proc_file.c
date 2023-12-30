@@ -83,9 +83,21 @@ struct file *get_opened_file(int fd) {
 int do_open(char *pathname, int flags) {
   // sprint ("do_open: %s\n", pathname);
   struct file *opened_file = NULL;
-  process *proc = current;
-  do_ccwd((uint64)pathname);
-  char * path =  proc->pfiles->cwd->name;
+  // process *proc = current;
+  // do_ccwd((uint64)pathname);
+  // char * path =  proc->pfiles->cwd->name;
+  char path[MAX_PATH_LEN];
+  memcpy(path,current->pfiles->cwd->name,strlen(current->pfiles->cwd->name));
+  if(pathname[0] == '.' && pathname[1] == '/'){
+    int len = strlen(pathname);
+    int len_path = strlen(path);
+    if(len_path == 1) len_path = 0;
+    for(int i=1;i<len;i++){
+      path[len_path++] = pathname[i];
+    }
+    path[len_path] = '\0';
+  }
+  // sprint("path:%s\n",path);
   if ((opened_file = vfs_open(path, flags)) == NULL) return -1;
 
   int fd = 0;
@@ -101,8 +113,8 @@ int do_open(char *pathname, int flags) {
   // initialize this file structure
   memcpy(pfile, opened_file, sizeof(struct file));
   // sprint("pathname:%s\n",pathname);
-  if(pathname[0] == '.' && pathname[1] == '/')
-    do_ccwd((uint64)"..");
+  // if(pathname[0] == '.' && pathname[1] == '/')
+  //   do_ccwd((uint64)"..");
 
   ++current->pfiles->nfiles;
   return fd;
@@ -231,11 +243,6 @@ int do_unlink(char *path) {
 }
 
 
-// added @lab4_chanllenge1, read current working directory, through bufva
-int do_rcwd(uint64 path) {
-  memcpy((void*)path, current->pfiles->cwd->name, strlen(current->pfiles->cwd->name));
-  return 0;
-}
 
 
 // added @lab4_chanllenge1, change current working directory, through bufva

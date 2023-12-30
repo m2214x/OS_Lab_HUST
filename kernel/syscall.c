@@ -221,7 +221,9 @@ ssize_t sys_user_unlink(char * vfn){
 //
 ssize_t sys_user_rcwd(uint64 cwva){
   uint64 cwpa = (uint64)user_va_to_pa((pagetable_t)(current->pagetable), (void*)cwva);
-  return do_rcwd(cwpa);
+  memset((char *)cwpa,0,MAX_PATH_LEN);
+  memcpy((char *)cwpa,current->pfiles->cwd->name,strlen(current->pfiles->cwd->name));
+  return 0;
 }
 
 // added @lab4_chanllenge1 , change current working directory, like sys_user_rcwd()
