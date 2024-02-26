@@ -54,3 +54,45 @@ void switch_to(process* proc) {
   // return_to_user() is defined in kernel/strap_vector.S. switch to user mode with sret.
   return_to_user(proc->trapframe);
 }
+
+
+// lab1_challeng2_added_code2: print_err_info
+char filename[0x100]; 
+char buf[0x1000];
+struct stat st;
+void print_err_info() {
+
+  uint64 mepc = read_csr(mepc);
+  // sprint("mepc = %p\n", mepc);
+  for (int i = 0; i < current->line_ind; i++) {
+    if(current->line[i].addr == mepc){
+    // sprint("current->line[i].addr = %x\n", current->line[i].addr);
+    sprint("Runtime error at %s/%s:%d\n", current->dir[current->line[i].file], current->file[current->line[i].file].file, current->line[i].line);
+    strcpy(filename, current->dir[current->file[current->line[i].file].dir]);
+    strcpy(filename + strlen(filename), "/");
+    strcpy(filename + strlen(filename) , current->file[current->line[i].file].file);
+    spike_file_t* fp = spike_file_open(filename, O_RDONLY, 0);
+    spike_file_stat(fp, &st);
+    spike_file_read(fp, buf, st.st_size);
+    spike_file_close(fp);
+    // sprint("%s",buf);
+    int offset=0, line=1;
+    for (int j = 0; j < st.st_size; j++) {
+      if (buf[j] == '\n') {
+        line++;
+        if (line == current->line[i].line) {
+          offset = j;
+          break;
+        }
+      }
+    }
+    int i=0;
+    while(*(buf+offset+i+1)!='\n'){
+      sprint("%c",*(buf+offset+i+1));
+      i++;
+    }
+    sprint("\n");
+    break;}
+  }
+  // sprint("lgm:debug_info_print end\n"); 
+}

@@ -222,6 +222,41 @@ elf_status elf_load(elf_ctx *ctx) {
   return EL_OK;
 }
 
+// lab1_challeng2_added_code1: load debug_line info
+static char debug_line[0x2000]; // 足够大的静态全局变量
+static elf_status load_debug_line_info(elf_ctx* ctx, process* p) {
+    elf_sect_header debug_line_header;
+    if(elf_fpread(ctx, &debug_line_header, sizeof(elf_sect_header), ctx->ehdr.shoff + ctx->ehdr.shstrndx * ctx->ehdr.shentsize) != sizeof(elf_sect_header))
+        return EL_EIO;
+    for(int i=0;i<ctx->ehdr.shstrndx;i++){
+        // sprint("now checking index: %d\n",i);
+        elf_sect_header temp;
+        char str_name[64];
+        if (elf_fpread(ctx, &temp, sizeof(temp), ctx->ehdr.shoff + i * ctx->ehdr.shentsize) != sizeof(elf_sect_header))
+            return EL_EIO;
+        elf_fpread(ctx, str_name, sizeof(str_name), debug_line_header.offset+temp.name);
+        // sprint("now checking string name: %s\n",str_name);
+        if (strcmp(str_name, ".debug_line") == 0) {
+            debug_line_header = temp;
+            // sprint("the correct index of debug_line: %d\n",i);
+            break;
+        }
+    }
+    if (elf_fpread(ctx, debug_line, debug_line_header.size, debug_line_header.offset) != debug_line_header.size)
+        return EL_EIO;
+    make_addr_line(ctx, debug_line, debug_line_header.size);
+
+    // 用以验证debug_line的信息内容
+    // sprint("start to travese debug_line.\nOrigin line_index is %d.\n", p->line_ind);
+    // for (int i = 0; i < p->line_ind; i++){
+    //     sprint("%p %d %d\n", p->line[i].addr, p->line[i].line, p->line[i].file);
+    //     sprint("file dir: %s\n", p->dir[p->line[i].file]);
+    //     sprint("file name: %s\n",p->file[p->line[i].file].file);
+    // }
+    return EL_OK;
+}
+
+
 typedef union {
   uint64 buf[MAX_CMDLINE_ARGS];
   char *argv[MAX_CMDLINE_ARGS];
@@ -276,6 +311,9 @@ void load_bincode_from_host_elf(process *p) {
 
   // load elf. elf_load() is defined above.
   if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
+
+  // lab1_challeng2_added_code1: load debug_line info
+  if (load_debug_line_info(&elfloader, p) != EL_OK) panic("Fail on loading debug line info.\n");
 
   // entry (virtual, also physical in lab1_x) address
   p->trapframe->epc = elfloader.ehdr.entry;
