@@ -76,19 +76,21 @@ void print_err_info() {
     spike_file_read(fp, buf, st.st_size);
     spike_file_close(fp);
     // sprint("%s",buf);
+    // sprint("Error line: %d", current->line[i].line);
     int offset=0, line=1;
     for (int j = 0; j < st.st_size; j++) {
-      if (buf[j] == '\n') {
-        line++;
-        if (line == current->line[i].line) {
-          offset = j;
-          break;
-        }
+      // sprint("line = %d", line);
+      if(line == current->line[i].line){
+        offset = j;
+        // sprint("Error line: %d\n", line);
+        break;
       }
+      if(buf[j] == '\n')
+        line++;
     }
     int i=0;
-    while(*(buf+offset+i+1)!='\n'){
-      sprint("%c",*(buf+offset+i+1));
+    while(*(buf+offset+i)!='\n'){
+      sprint("%c",*(buf+offset+i));
       i++;
     }
     sprint("\n");
