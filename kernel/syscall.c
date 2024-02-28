@@ -97,6 +97,23 @@ ssize_t sys_user_yield() {
   return 0;
 }
 
+
+// lab3_challenge2 code1: system_call
+uint64 sys_user_sem_new() {
+  // TODO (lab3_challenge2): implment the syscall of sem_new.
+  return 0;
+}
+
+uint64 sys_user_sem_P() {
+  // TODO (lab3_challenge2): implment the syscall of sem_P.
+  return 0;
+}
+
+uint64 sys_user_sem_V() {
+  // TODO (lab3_challenge2): implment the syscall of sem_V.
+  return 0;
+}
+
 //
 // [a0]: the syscall number; [a1] ... [a7]: arguments to the syscalls.
 // returns the code of success, (e.g., 0 means success, fail for otherwise)
@@ -116,6 +133,12 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
       return sys_user_fork();
     case SYS_user_yield:
       return sys_user_yield();
+    case SYS_user_sem_new:
+      return sys_user_sem_new();
+    case SYS_user_sem_P:
+      return sys_user_sem_P();
+    case SYS_user_sem_V: 
+      return sys_user_sem_V();
     default:
       panic("Unknown syscall %ld \n", a0);
   }
