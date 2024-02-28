@@ -60,7 +60,7 @@ uint64 sys_user_free_page(uint64 va) {
 
 //lab2_challenge2_code2: define func better_malloc and better_free
 uint64 sys_user_better_malloc(uint64 size) {
-  return 0;
+  return better_malloc(size);
 }
 
 uint64 sys_user_better_free(uint64 addr) {

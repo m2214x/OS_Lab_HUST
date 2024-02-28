@@ -6,9 +6,8 @@
 
 // lab2_challenge2_code1: define the MCB_t struct
 typedef struct MCB_t{
-  uint64 addr;
   uint64 size;
-  struct MCB_t* next;
+  uint64 next;
 }MCB;
 
 
@@ -36,9 +35,9 @@ typedef struct process_t {
   // trapframe storing the context of a (User mode) process.
   trapframe* trapframe;
 
-  // lab2_challenge2_code1: 扩展对虚拟空间的管理
-  MCB* mcb_used;
-  MCB* mcb_free;
+  // lab2_challenge2_code1: 扩展对虚拟空间的管理;使用uint64类型的指针,来表示虚地址
+  uint64 mcb_used;
+  uint64 mcb_free;
 }process;
 
 // switch to run user app
@@ -51,7 +50,7 @@ extern process* current;
 extern uint64 g_ufree_page;
 
 // lab2_challenge2_code1: define the function to manage the virtual space
-void* better_malloc(int n);
+uint64 better_malloc(int n);
 void better_free(uint64 va);
 
 #endif
