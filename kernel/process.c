@@ -68,6 +68,16 @@ void switch_to(process* proc) {
 
 //lab2_challenge2_code3: added for better_malloc and better_free
 
+void print_ptr(uint64 va){
+  MCB* pa = (MCB*)user_va_to_pa(current->pagetable,(void*)va);
+  while(va){
+    sprint("%p ",va);
+    pa = (MCB*)user_va_to_pa(current->pagetable,(void*)va);
+    va = pa->next;
+  }
+  sprint("\n");
+}
+
 void update_free_mcb(uint64 mcb){
   // sprint("update free mcb.\n");
   MCB* p = (MCB*)user_va_to_pa(current->pagetable,(void*)mcb);
@@ -105,12 +115,16 @@ void update_free_mcb(uint64 mcb){
 }
 
 void remove_mcb(uint64* head_mab, uint64 va){
-  // sprint("remove mcb.\n");
   if(current->mcb_free == -1){
+    // sprint("-1!\n");
     return;
   }
+  // sprint("remove mcb.\n");
+  // sprint("curret used is %p.\n",*head_mab);
   MCB* pa = (MCB*)user_va_to_pa(current->pagetable,(void*)*head_mab);
+  // sprint("pa is %p.\n",pa);
   MCB* next_pa = (MCB*)user_va_to_pa(current->pagetable,(void*)pa->next);
+  // sprint("next_pa is %p.\n",next_pa);
   if(*head_mab == va){
     if(current->mcb_free == va && pa->next==0){
       current->mcb_free = -1;
@@ -126,18 +140,21 @@ void remove_mcb(uint64* head_mab, uint64 va){
     next_pa = (MCB*)user_va_to_pa(current->pagetable,(void*)next_va);
     if(next_va == va){
       pa->next = next_pa->next;
+      // sprint("remove mcb success.\n");
       return;
     }
   }
 }
 
 void update_used_mcb(uint64 mcb){
+  // sprint("update used mcb.\n");
   MCB* p = (MCB*)user_va_to_pa(current->pagetable,(void*)mcb);
+  // sprint("pa is %p, size is %d\n",p,p->size);
   if(current->mcb_used == -1){
     current->mcb_used = mcb;
   }
   else{
-    // mcb->next = current->mcb_used;
+    p->next = current->mcb_used;
     current->mcb_used = mcb;
   }
   return;
@@ -279,7 +296,6 @@ int have_enough_space(int size,uint64* va){
 }
 
 
-
 uint64 better_malloc(int n){
   // sprint("malloc size is %d.\n",n);
   uint64 va;
@@ -298,8 +314,28 @@ uint64 better_malloc(int n){
   return ret;
 }
 
+void remove_used_mcb(uint64 va){
+  MCB* pa = (MCB*)user_va_to_pa(current->pagetable,(void*)va);
+  MCB* now_pa = (MCB*)user_va_to_pa(current->pagetable,(void*)current->mcb_used);
+  if(pa == now_pa){
+    current->mcb_used = pa->next;
+    return;
+  }
+  while(now_pa->next){
+    if(now_pa->next == va){
+      now_pa->next = pa->next;
+      return;
+    }
+    now_pa = (MCB*)user_va_to_pa(current->pagetable,(void*)va);
+    va = now_pa->next;
+  }
+}
+
 void better_free(uint64 va){
   uint64 p = va - sizeof(MCB);
-  remove_mcb(&current->mcb_used, p);
+  // sprint("free va is %p.\n",p);
+  // sprint("curret used va is %p.\n",current->mcb_used);
+  // print_ptr(current->mcb_used);
+  remove_used_mcb(p);
   update_free_mcb(p);
 }
