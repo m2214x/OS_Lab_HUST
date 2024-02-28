@@ -67,7 +67,7 @@ void print_err_info() {
   for (int i = 0; i < current->line_ind; i++) {
     if(current->line[i].addr == mepc){
     // sprint("current->line[i].addr = %x\n", current->line[i].addr);
-    sprint("Runtime error at %s/%s:%d\n", current->dir[current->line[i].file], current->file[current->line[i].file].file, current->line[i].line);
+    sprint("Runtime error at %s/%s:%d\n", current->dir[current->file[current->line[i].file].dir], current->file[current->line[i].file].file, current->line[i].line);
     strcpy(filename, current->dir[current->file[current->line[i].file].dir]);
     strcpy(filename + strlen(filename), "/");
     strcpy(filename + strlen(filename) , current->file[current->line[i].file].file);
@@ -96,5 +96,4 @@ void print_err_info() {
     sprint("\n");
     break;}
   }
-  // sprint("lgm:debug_info_print end\n"); 
 }
