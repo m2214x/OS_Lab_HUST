@@ -258,3 +258,56 @@ int do_fork( process* parent)
   return child->pid;
 }
 
+signal sems[NPROC];
+int USED = 1, NOT_USED = 0;
+int sem_new(int sem_val){
+  // sprint("sem_val = %d\n",sem_val);
+  for (int i = 0; i < NPROC; i++) {
+    if (sems[i].status == NOT_USED) {
+      sems[i].status = USED;
+      sems[i].value = sem_val;
+      sems[i].wait_head = sems[i].wait_tail = 0;
+      return i;
+    }
+  }
+  return -1;
+}
+
+void sem_P(int sem_id){
+  // sprint("sem_p is running\n");
+  // sprint("sem_id = %d\n",sem_id);
+  sems[sem_id].value--;   // 当前进程对信号量进行P操作，信号量的值减1
+  // sprint("%d\n",sems[sem_id].value);
+  if(sems[sem_id].value < 0){
+    if(sems[sem_id].wait_head == 0){
+      //当前等待队列是空的，直接放在等待队列的队头
+      // sprint("flag1\n");
+      sems[sem_id].wait_head = current;
+      sems[sem_id].wait_tail = current;
+      current->queue_next = 0;
+    }
+    else{
+      //当前等待队列非空，放在当前等待队列的队尾
+      // sprint("flag2\n");
+      sems[sem_id].wait_tail->queue_next = current->queue_next;
+      sems[sem_id].wait_tail = current;
+      // current->queue_next = 0;
+    }
+    current->status = BLOCKED;
+    schedule();
+    // sprint("flag3\n");
+  }
+  // sprint("sem_P is done.\n");
+}
+
+void sem_V(int sem_id){
+  // sprint("sem_V is running\n");
+  sems[sem_id].value++;   // 当前进程对信号量进行V操作，信号量的值加1
+  if(sems[sem_id].value <= 0){
+    //当前等待队列非空，唤醒等待队列的队头
+    process* p = sems[sem_id].wait_head;
+    sems[sem_id].wait_head = p->queue_next;
+    p->status = READY;
+    insert_to_ready_queue(p);
+  }
+}

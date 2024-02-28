@@ -99,18 +99,21 @@ ssize_t sys_user_yield() {
 
 
 // lab3_challenge2 code1: system_call
-uint64 sys_user_sem_new() {
+uint64 sys_user_sem_new(uint64 sem_val) {
   // TODO (lab3_challenge2): implment the syscall of sem_new.
+  return sem_new(sem_val);
   return 0;
 }
 
-uint64 sys_user_sem_P() {
+uint64 sys_user_sem_P(uint64 sem_id) {
   // TODO (lab3_challenge2): implment the syscall of sem_P.
+  sem_P(sem_id);
   return 0;
 }
 
-uint64 sys_user_sem_V() {
+uint64 sys_user_sem_V(uint64 sem_id) {
   // TODO (lab3_challenge2): implment the syscall of sem_V.
+  sem_V(sem_id);
   return 0;
 }
 
@@ -134,11 +137,11 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
     case SYS_user_yield:
       return sys_user_yield();
     case SYS_user_sem_new:
-      return sys_user_sem_new();
+      return sys_user_sem_new(a1);
     case SYS_user_sem_P:
-      return sys_user_sem_P();
+      return sys_user_sem_P(a1);
     case SYS_user_sem_V: 
-      return sys_user_sem_V();
+      return sys_user_sem_V(a1);
     default:
       panic("Unknown syscall %ld \n", a0);
   }

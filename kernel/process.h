@@ -103,6 +103,17 @@ int free_process( process* proc );
 // fork a child from parent
 int do_fork(process* parent);
 
+// added@lab3_challenge2
+typedef struct {   
+  int value;
+  int status;
+  process *wait_head, *wait_tail;
+} signal;       
+
+int sem_new(int sem_val);
+void sem_P(int sem_id);
+void sem_V(int sem_id);
+
 // current running process
 extern process* current;
 
