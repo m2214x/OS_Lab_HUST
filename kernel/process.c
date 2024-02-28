@@ -299,5 +299,7 @@ uint64 better_malloc(int n){
 }
 
 void better_free(uint64 va){
-  
+  uint64 p = va - sizeof(MCB);
+  remove_mcb(&current->mcb_used, p);
+  update_free_mcb(p);
 }

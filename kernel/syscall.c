@@ -64,6 +64,7 @@ uint64 sys_user_better_malloc(uint64 size) {
 }
 
 uint64 sys_user_better_free(uint64 addr) {
+  better_free(addr);
   return 0;
 }
 
