@@ -110,4 +110,8 @@ int do_fork(process* parent);
 // current running process
 extern process* current;
 
+// added @ lab4_challenge2
+// int do_exec(const char *path);
+void exec_clean(process* p);
+
 #endif

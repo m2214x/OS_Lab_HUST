@@ -109,6 +109,7 @@ struct super_block *vfs_mount(const char *dev_name, int mnt_type) {
 // return: the file pointer to the opened file.
 //
 struct file *vfs_open(const char *path, int flags) {
+  sprint("vfs_open: opening file %s\n", path);
   struct dentry *parent = vfs_root_dentry; // we start the path lookup from root.
   char miss_name[MAX_PATH_LEN];
 
@@ -180,7 +181,7 @@ struct file *vfs_open(const char *path, int flags) {
       sprint("vfs_open: hook_open failed!\n");
     }
   }
-
+  sprint("vfs_open: file opened!\n");
   return file;
 }
 

@@ -42,6 +42,7 @@ process* load_user_program() {
 
   proc = alloc_process();
   sprint("User application is loading.\n");
+  // sprint("flag\n");
 
   load_bincode_from_host_elf(proc);
   return proc;
