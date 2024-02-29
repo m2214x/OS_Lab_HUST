@@ -229,80 +229,29 @@ int do_unlink(char *path) {
 static void exec_bincode(process *p, char *path)
 {
   sprint("Application: %s\n", path);
-  // 加载ehdr
-  int fp = do_open(path, O_RDONLY);
-  // sprint("the fp = %d\n", fp);
-  spike_file_t *f = (spike_file_t *)(get_opened_file(fp)->f_dentry->dentry_inode->i_fs_info); // 看第134行。。。。
-  elf_header ehdr;
-  if (spike_file_read(f, &ehdr, sizeof(elf_header)) != sizeof(elf_header))
-  {
-      panic("read elf header error\n");
-  }
-  if (ehdr.magic != ELF_MAGIC)
-  {
-      panic("do_exec: not an elf file.\n");
-  }
-  // print_ehdr(&ehdr);
+  //elf loading. elf_ctx is defined in kernel/elf.h, used to track the loading process.
+  elf_ctx elfloader;
+  // elf_info is defined above, used to tie the elf file and its corresponding process.
+  elf_info info;
 
-  // 加载代码段 & 数据段
-  elf_prog_header ph_addr;
-  for (int i = 0, off = ehdr.phoff; i < ehdr.phnum; i++, off += sizeof(ph_addr))
-  {
-      // step1: 加载程序头entry
-      spike_file_lseek(f, off, SEEK_SET); // seek to the program header
-      if (spike_file_read(f, &ph_addr, sizeof(ph_addr)) != sizeof(ph_addr))
-      {
-          panic("read elf program header error\n");
-      }
-      if (ph_addr.type != ELF_PROG_LOAD) // 通常只有代码段和数据段是ELF_PROG_LOAD的
-          continue;
-      if (ph_addr.memsz < ph_addr.filesz)
-      {
-          panic("memsz < filesz error.\n");
-      }
-      if (ph_addr.vaddr + ph_addr.memsz < ph_addr.vaddr)
-      {
-          panic("vaddr + memsz < vaddr error.\n");
-      }
+  info.f = vfs_open(path, O_RDONLY);
+  info.p = p;
+  // IS_ERR_VALUE is a macro defined in spike_interface/spike_htif.h
+  if (IS_ERR_VALUE(info.f)) panic("Fail on openning the input application program.\n");
 
-      // step2: 加载段
-      void *pa = alloc_page(); // 分配一页内存
-      memset(pa, 0, PGSIZE);
-      user_vm_map((pagetable_t)p->pagetable, ph_addr.vaddr, PGSIZE, (uint64)pa, prot_to_type(PROT_WRITE | PROT_READ | PROT_EXEC, 1));
-      spike_file_lseek(f, ph_addr.off, SEEK_SET);
-      if (spike_file_read(f, pa, ph_addr.memsz) != ph_addr.memsz)
-      {
-          panic("read program segment error.\n");
-      }
+  // init elfloader context. elf_init() is defined above.
+  if (elf_init(&elfloader, &info) != EL_OK)
+    panic("fail to init elfloader.\n");
 
-      // step3: 填补mapped_info
-      int pos;
-      for (pos = 0; pos < PGSIZE / sizeof(mapped_region); pos++) // seek the last mapped region
-          if (p->mapped_info[pos].va == 0x0)
-              break;
+  // load elf. elf_load() is defined above.
+  if (elf_load(&elfloader) != EL_OK) panic("Fail on loading elf.\n");
 
-      p->mapped_info[pos].va = ph_addr.vaddr;
-      p->mapped_info[pos].npages = 1;
+  // entry (virtual, also physical in lab1_x) address
+  p->trapframe->epc = elfloader.ehdr.entry;
 
-      // SEGMENT_READABLE, SEGMENT_EXECUTABLE, SEGMENT_WRITABLE are defined in kernel/elf.h
-      if (ph_addr.flags == (SEGMENT_READABLE | SEGMENT_EXECUTABLE))
-      {
-          p->mapped_info[pos].seg_type = CODE_SEGMENT;
-          sprint("CODE_SEGMENT added at mapped info offset:%d\n", pos);
-      }
-      else if (ph_addr.flags == (SEGMENT_READABLE | SEGMENT_WRITABLE))
-      {
-          p->mapped_info[pos].seg_type = DATA_SEGMENT;
-          sprint("DATA_SEGMENT added at mapped info offset:%d\n", pos);
-      }
-      else
-          panic("unknown program segment encountered, segment flag:%d.\n", ph_addr.flags);
+  // close the host spike file
+  vfs_close( info.f );
 
-      p->total_mapped_region++;
-  }
-  // 设置tramframe
-  p->trapframe->epc = ehdr.entry;
-  do_close(fp); // NOTE:importat!!!!!!!!!!!!!!!!!!!!
   sprint("Application program entry point (virtual address): 0x%lx\n", p->trapframe->epc);
 }
 
