@@ -12,6 +12,7 @@
 #include "process.h"
 #include "elf.h"
 #include "string.h"
+#include "riscv-pke/spike_interface/atomic.h"
 
 #include "spike_interface/spike_utils.h"
 
@@ -19,15 +20,19 @@
 extern char smode_trap_vector[];
 extern void return_to_user(trapframe*);
 
+// define in kernel/kernel.c
+extern spinlock_t user_app_lock;
+
 // current points to the currently running user-mode application.
-process* current = NULL;
+process* current[NCPU] = {NULL};
 
 //
 // switch to a user-mode process
-//
+
 void switch_to(process* proc) {
+  int cpuid = read_tp();
   assert(proc);
-  current = proc;
+  current[cpuid] = proc;
 
   // write the smode_trap_vector (64-bit func. address) defined in kernel/strap_vector.S
   // to the stvec privilege register, such that trap handler pointed by smode_trap_vector
@@ -51,6 +56,7 @@ void switch_to(process* proc) {
   // set S Exception Program Counter (sepc register) to the elf entry pc.
   write_csr(sepc, proc->trapframe->epc);
 
+  spinlock_unlock(&user_app_lock);
   // return_to_user() is defined in kernel/strap_vector.S. switch to user mode with sret.
   return_to_user(proc->trapframe);
 }
