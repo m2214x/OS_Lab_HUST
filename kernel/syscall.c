@@ -12,6 +12,7 @@
 #include "util/functions.h"
 
 #include "spike_interface/spike_utils.h"
+#include "sync_utils.h"
 
 //
 // implement the SYS_user_print syscall
@@ -24,13 +25,20 @@ ssize_t sys_user_print(const char* buf, size_t n) {
 //
 // implement the SYS_user_exit syscall
 //
+static int exit_count = 0;
 ssize_t sys_user_exit(uint64 code) {
-  int cpuid = read_tp();  // read the hartid
-  sprint("hartid = %d: User exit with code:%d.\n", cpuid, code);
+  // sprint("checking at exit\n");
+  sprint("hartid = %d: User exit with code:%d.\n", read_tp(), code); // comment:修改打印信息 将cpu的id打印出
   // in lab1, PKE considers only one app (one process). 
   // therefore, shutdown the system when the app calls exit()
-  sprint("hartid = %d: shutdown with code:%d.\n", cpuid, code);
-  shutdown(code);
+  // sprint("checking at exit\n");
+  sync_barrier(&exit_count, NCPU);
+  // sprint("checking at exit\n");
+  if (read_tp() == 0) {
+    sprint("hartid = %d: shutdown with code:%d.\n", 0, code); // comment:修改打印信息 将cpu的id打印出
+    shutdown(code);
+  }
+  return 0;  // never return
 }
 
 //

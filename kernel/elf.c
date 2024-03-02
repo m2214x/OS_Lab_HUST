@@ -107,13 +107,14 @@ static size_t parse_args(arg_buf *arg_bug_msg) {
 void load_bincode_from_host_elf(process *p) {
   arg_buf arg_bug_msg;
 
+  // sprint("cheking\n");
   // retrieve command line arguements
   size_t argc = parse_args(&arg_bug_msg);
   if (!argc) panic("You need to specify the application program!\n");
 
   int cpuid = read_tp();  // read the hartid
   //added @ lab1_challeng3: hartid should be read.
-  sprint("hartid = %d: Application: %s\n", cpuid, arg_bug_msg.argv[0]);     
+  sprint("hartid = %d: Application: %s\n", cpuid, arg_bug_msg.argv[cpuid]);     
 
   //elf loading. elf_ctx is defined in kernel/elf.h, used to track the loading process.
   elf_ctx elfloader;

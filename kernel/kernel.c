@@ -20,11 +20,21 @@ spinlock_t user_app_lock;
 //
 void load_user_program(process *proc) {
   // USER_TRAP_FRAME is a physical address defined in kernel/config.h
-  proc->trapframe = (trapframe *)USER_TRAP_FRAME;
+  int cpuid = read_tp();
+  // sprint("checking at load_user_program top\n");
+  if(cpuid==0)
+    proc->trapframe = (trapframe *)USER_TRAP_FRAME_0;
+  else
+    proc->trapframe = (trapframe *)USER_TRAP_FRAME_1;
+  // sprint("trapframe is  %p\n",proc->trapframe);
   memset(proc->trapframe, 0, sizeof(trapframe));
   // USER_KSTACK is also a physical address defined in kernel/config.h
-  proc->kstack = USER_KSTACK;
-  proc->trapframe->regs.sp = USER_STACK;
+  proc->kstack = USER_KSTACK + cpuid * 0x4000000;
+  // sprint("kstack is     %p\n",proc->kstack);
+  proc->trapframe->regs.sp = USER_STACK + cpuid * 0x4000000;
+  // sprint("regs_sp is    %p\n",proc->trapframe->regs.sp);
+  // sprint("checking at load_user_program bottum\n");
+  proc->trapframe->regs.tp = cpuid;
 
   // load_bincode_from_host_elf() is defined in kernel/elf.c
   load_bincode_from_host_elf(proc);
@@ -45,12 +55,13 @@ int s_start(void) {
   write_csr(satp, 0);
 
   // the application code (elf) is first loaded into memory, and then put into execution
+  // sprint("cheking at s_start\n");
   load_user_program(&user_app[cpuid]);
 
   sprint("hartid = %d: Switch to user mode...\n", cpuid);
   spinlock_unlock(&cpu_lock);
   // switch_to() is defined in kernel/process.c
-  spinlock_lock(&user_app_lock);
+  // spinlock_lock(&user_app_lock);
   switch_to(&user_app[cpuid]);
 
   // we should never reach here.
