@@ -6,6 +6,7 @@
 #include "kernel/riscv.h"
 #include "kernel/config.h"
 #include "spike_interface/spike_utils.h"
+#include "riscv-pke/spike_interface/atomic.h"
 
 //
 // global variables are placed in the .data section.
@@ -90,16 +91,19 @@ void timerinit(uintptr_t hartid) {
 //
 // m_start: machine mode C entry point.
 //
+spinlock_t cpu_lock;
 void m_start(uintptr_t hartid, uintptr_t dtb) {
-  // init the spike file interface (stdin,stdout,stderr)
-  // functions with "spike_" prefix are all defined in codes under spike_interface/,
-  // sprint is also defined in spike_interface/spike_utils.c
-  spike_file_init();
+  spinlock_lock(&cpu_lock);
+  if(hartid == 0) {
+    // init the spike file interface (stdin,stdout,stderr)
+    // functions with "spike_" prefix are all defined in codes under spike_interface/,
+    // sprint is also defined in spike_interface/spike_utils.c
+    spike_file_init();
+    // init HTIF (Host-Target InterFace) and memory by using the Device Table Blob (DTB)
+    // init_dtb() is defined above.
+    init_dtb(dtb);
+  }
   sprint("In m_start, hartid:%d\n", hartid);
-
-  // init HTIF (Host-Target InterFace) and memory by using the Device Table Blob (DTB)
-  // init_dtb() is defined above.
-  init_dtb(dtb);
 
   // save the address of trap frame for interrupt in M mode to "mscratch". added @lab1_2
   write_csr(mscratch, &g_itrframe);
@@ -126,6 +130,7 @@ void m_start(uintptr_t hartid, uintptr_t dtb) {
 
   // init timing. added @lab1_3
   timerinit(hartid);
+  write_tp(hartid);
 
   // switch to supervisor mode (S mode) and jump to s_start(), i.e., set pc to mepc
   asm volatile("mret");
