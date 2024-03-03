@@ -10,7 +10,7 @@
 #include "vmm.h"
 #include "memlayout.h"
 #include "spike_interface/spike_utils.h"
-#include "riscv-pke/spike_interface/atomic.h"
+#include "spike_interface/atomic.h"
 #include "sync_utils.h"
 
 // process is a structure defined in kernel/process.h
@@ -56,7 +56,7 @@ void load_user_program(process *proc)
 
   // USER_STACK_TOP = 0x7ffff000, defined in kernel/memlayout.h
   proc->trapframe->regs.sp = USER_STACK_TOP; // virtual address of user stack top
-  proc->trapframe->regs.tp = 0;              // thread pointer
+  proc->trapframe->regs.tp = hartid;              // thread pointer
 
   sprint("hartid = %d: user frame 0x%lx, user stack 0x%lx, user kstack 0x%lx \n", hartid, proc->trapframe,
          proc->trapframe->regs.sp, proc->kstack);

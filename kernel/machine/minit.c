@@ -6,7 +6,7 @@
 #include "kernel/riscv.h"
 #include "kernel/config.h"
 #include "spike_interface/spike_utils.h"
-#include "riscv-pke/spike_interface/atomic.h"
+#include "spike_interface/atomic.h"
 
 //
 // global variables are placed in the .data section.
