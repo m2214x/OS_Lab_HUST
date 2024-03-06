@@ -20,6 +20,7 @@ int map_pages(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int perm)
 {
   uint64 first, last;
   pte_t *pte;
+  
 
   for (first = ROUNDDOWN(va, PGSIZE), last = ROUNDDOWN(va + size - 1, PGSIZE);
        first <= last; first += PGSIZE, pa += PGSIZE)
@@ -31,6 +32,24 @@ int map_pages(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int perm)
     *pte = PA2PTE(pa) | perm | PTE_V;
   }
   return 0;
+}
+
+// cow_vm_map is added @lab3_challenge3
+void cow_user_vm_map(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int perm)
+{
+  // TODO (lab3_challenge3): implement cow_vm_map to map the virtual address [va, va+size]
+  // to the physical address [pa, pa+size] with the permission of "perm". The difference
+  // between cow_vm_map and user_vm_map is that cow_vm_map should set the COW flag in the
+  // PTEs. The COW flag is used to implement the copy-on-write mechanism. When a page is
+  // marked as COW, the page is shared between the parent and the child processes. The
+  // page is only copied when either process tries to write to the page. You can set the
+  // COW flag by ORing the PTE with the COW flag (PTE_COW).
+  // panic( "You have to implement cow_vm_map to set the COW flag in the PTEs in lab3_challenge3.\n" );
+  pte_t * pte = page_walk(page_dir, va, 1);
+  if(pte == 0){
+    panic("fail to cow_vm_map .\n");
+  }
+  *pte = PA2PTE(pa) | perm | PTE_V | PTE_COW;
 }
 
 //
@@ -204,6 +223,9 @@ void user_vm_map(pagetable_t page_dir, uint64 va, uint64 size, uint64 pa, int pe
   }
 }
 
+
+
+
 //
 // unmap virtual address [va, va+size] from the user app.
 // reclaim the physical pages if free!=0
@@ -223,7 +245,6 @@ void user_vm_unmap(pagetable_t page_dir, uint64 va, uint64 size, int free) {
     free_page((void *)pa);
     *pte = *pte & ~1; 
   }
-
 }
 
 //

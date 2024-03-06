@@ -10,6 +10,7 @@
 #include "vmm.h"
 #include "sched.h"
 #include "util/functions.h"
+#include <string.h>
 
 #include "spike_interface/spike_utils.h"
 
@@ -64,7 +65,19 @@ void handle_user_page_fault(uint64 mcause, uint64 sepc, uint64 stval) {
       // panic( "You need to implement the operations that actually handle the page fault in lab2_3.\n" );
       {
         void* pa = alloc_page();
-        user_vm_map((pagetable_t)current->pagetable, stval, 8, (uint64)pa, prot_to_type(PROT_WRITE | PROT_READ, 1));
+        pte_t * pte = page_walk(current->pagetable, stval, 1);
+        if( (*pte & PTE_COW) != 0 ){
+          // sprint("COW\n");
+          memcpy(pa, (void*)lookup_pa(current->pagetable, stval) , PGSIZE);
+          void* pa_p = (void*)lookup_pa(current->pagetable, stval);
+          int* p = (int*)pa_p;
+          // sprint("pa_p falls on %p\n",pa_p);
+          // sprint("%d\n",(uint64)p);
+          // sprint("%d\n",(uint64)pa);
+          // sprint(("pa falls on %p\n"),pa);
+        }
+        // user_vm_map((pagetable_t)current->pagetable, stval, PGSIZE, (uint64)pa, prot_to_type(PROT_WRITE | PROT_READ, 1));
+        cow_user_vm_map((pagetable_t)current->pagetable, stval, PGSIZE, (uint64)pa, prot_to_type(PROT_WRITE | PROT_READ, 1));
       }
 
       break;
