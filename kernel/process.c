@@ -168,6 +168,18 @@ int free_process( process* proc ) {
   // but for proxy kernel, it (memory leaking) may NOT be a really serious issue,
   // as it is different from regular OS, which needs to run 7x24.
   proc->status = ZOMBIE;
+    for(int i=0;i<NPROC;i++)
+  {
+    //如果进程i的status为BLOCKED
+    if(procs[i].status == BLOCKED){
+      //如果进程i的waiting_pid为proc的pid，或者进程i的waiting_pid为-1且proc是进程i的父进程
+      //第一种情况对应着寻找指定的子进程，第二种情况对应着寻找到了某一个子进程
+      if(procs[i].waiting_pid == proc->pid || (procs[i].waiting_pid == -1 && proc->parent == &procs[i])){
+        procs[i].status = READY;
+        insert_to_ready_queue(&procs[i]);
+      }
+    }
+  }
 
   return 0;
 }
@@ -249,8 +261,27 @@ int do_fork( process* parent)
           parent->mapped_info[i].npages;
         child->mapped_info[child->total_mapped_region].seg_type = CODE_SEGMENT;
         child->total_mapped_region++;
-        }
+        }sprint("do_fork map code segment at pa:%lx of parent to child at va:%lx.\n", lookup_pa(parent->pagetable, parent->mapped_info[i].va), parent->mapped_info[i].va);
         break;
+            //TODO (lab3_challeng1_wait) : implment the mapping of child data segment to parent's
+      //此处代码基本可以参考lab3_1的代码
+      // case DATA_SEGMENT:
+      // {        
+      //   child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
+      //   child->mapped_info[child->total_mapped_region].npages = parent->mapped_info[i].npages;
+      //   child->mapped_info[child->total_mapped_region].seg_type = DATA_SEGMENT;
+      //   for(int j=0;j<child->mapped_info[child->total_mapped_region].npages;j++)
+      //   {
+      //     uint64 child_pa = (uint64)alloc_page();
+      //     memcpy((void*)child_pa,(void*)lookup_pa(parent->pagetable,parent->mapped_info[i].va+j*PGSIZE),PGSIZE);
+      //     user_vm_map((pagetable_t)child->pagetable,parent->mapped_info[i].va+j*PGSIZE,PGSIZE,child_pa,prot_to_type(PROT_WRITE | PROT_READ,1));
+      //   }
+        
+      //   // after mapping, register the vm region (do not delete codes below!)
+
+      //   child->total_mapped_region++;
+      //   break;
+      // }
     }
   }
 
@@ -260,4 +291,73 @@ int do_fork( process* parent)
   insert_to_ready_queue( child );
 
   return child->pid;
+}
+
+// lab4_challenge3 code1: 清除原进程代码段和数据段
+void exec_clean(process* p) {
+  // sprint("in exec_clean. user frame 0x%lx, user stack 0x%lx, user kstack 0x%lx \n",p->trapframe, p->trapframe->regs.sp, p->kstack);
+  // 释放原进程的数据段、代码段和堆栈段
+  int cnt=0;
+  for(int i=0;i<p->total_mapped_region;i++){
+      if(p->mapped_info[i].seg_type == CODE_SEGMENT || p->mapped_info[i].seg_type == DATA_SEGMENT || p->mapped_info[i].seg_type == STACK_SEGMENT){
+          void* pa = user_va_to_pa(p->pagetable, (void*)p->mapped_info[i].va);
+          user_vm_unmap(p->pagetable, p->mapped_info[i].va, p->mapped_info[i].npages * PGSIZE, 1);
+          current->mapped_info[i].va = 0;
+          current->mapped_info[i].npages = 0;
+          cnt++;
+      }
+  }
+  current->total_mapped_region -= cnt;
+  
+  // init proc[i]'s vm space
+  p->trapframe = (trapframe *)alloc_page(); // trapframe, used to save context 
+  memset(p->trapframe, 0, sizeof(trapframe));
+
+  // page directory
+  p->pagetable = (pagetable_t)alloc_page();
+  memset((void *)p->pagetable, 0, PGSIZE);
+
+  p->kstack = (uint64)alloc_page() + PGSIZE; // user kernel stack top
+  uint64 user_stack = (uint64)alloc_page();        // phisical address of user stack bottom
+  p->trapframe->regs.sp = USER_STACK_TOP;    // virtual address of user stack top
+
+  // allocates a page to record memory regions (segments)
+  p->mapped_info = (mapped_region *)alloc_page();
+  memset(p->mapped_info, 0, PGSIZE);
+
+  // map user stack in userspace
+  user_vm_map((pagetable_t)p->pagetable, USER_STACK_TOP - PGSIZE, PGSIZE,
+              user_stack, prot_to_type(PROT_WRITE | PROT_READ, 1));
+  p->mapped_info[STACK_SEGMENT].va = USER_STACK_TOP - PGSIZE;
+  p->mapped_info[STACK_SEGMENT].npages = 1;
+  p->mapped_info[STACK_SEGMENT].seg_type = STACK_SEGMENT;
+
+  // map trapframe in user space (direct mapping as in kernel space).
+  user_vm_map((pagetable_t)p->pagetable, (uint64)p->trapframe, PGSIZE, // trapframe的物理地址等于虚拟地址
+              (uint64)p->trapframe, prot_to_type(PROT_WRITE | PROT_READ, 0));
+  p->mapped_info[CONTEXT_SEGMENT].va = (uint64)p->trapframe;
+  p->mapped_info[CONTEXT_SEGMENT].npages = 1;
+  p->mapped_info[CONTEXT_SEGMENT].seg_type = CONTEXT_SEGMENT;
+
+  // map S-mode trap vector section in user space (direct mapping as in kernel space)
+  // we assume that the size of usertrap.S is smaller than a page.
+  user_vm_map((pagetable_t)p->pagetable, (uint64)trap_sec_start, PGSIZE,
+              (uint64)trap_sec_start, prot_to_type(PROT_READ | PROT_EXEC, 0));
+  p->mapped_info[SYSTEM_SEGMENT].va = (uint64)trap_sec_start;
+  p->mapped_info[SYSTEM_SEGMENT].npages = 1;
+  p->mapped_info[SYSTEM_SEGMENT].seg_type = SYSTEM_SEGMENT;
+
+  // initialize the process's heap manager
+  p->user_heap.heap_top = USER_FREE_ADDRESS_START;
+  p->user_heap.heap_bottom = USER_FREE_ADDRESS_START;
+  p->user_heap.free_pages_count = 0;
+
+  // map user heap in userspace
+  p->mapped_info[HEAP_SEGMENT].va = USER_FREE_ADDRESS_START;
+  p->mapped_info[HEAP_SEGMENT].npages = 0; // no pages are mapped to heap yet.
+  p->mapped_info[HEAP_SEGMENT].seg_type = HEAP_SEGMENT;
+
+  p->total_mapped_region = 4;
+
+  // sprint("in exec_clean. user frame 0x%lx, user stack 0x%lx, user kstack 0x%lx \n",p->trapframe, p->trapframe->regs.sp, p->kstack);
 }

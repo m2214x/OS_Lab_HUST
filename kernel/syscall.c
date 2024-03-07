@@ -17,6 +17,7 @@
 
 #include "spike_interface/spike_utils.h"
 
+
 //
 // implement the SYS_user_print syscall
 //
@@ -216,6 +217,32 @@ ssize_t sys_user_unlink(char * vfn){
   return do_unlink(pfn);
 }
 
+ssize_t sys_user_exec(char *path, const char* argv) {
+  char *pathpa = (char*)user_va_to_pa((pagetable_t)(current->pagetable), path);
+  char *argvpa = (char*)user_va_to_pa((pagetable_t)(current->pagetable), (void*)argv);
+  return do_exec(pathpa, argvpa);
+}
+
+extern process procs[NPROC];
+ssize_t sys_user_wait(int pid) {
+  if(pid > 0){
+    if(procs[pid].parent != current){
+      //首先判断pid是否为当前进程的子进程，如果不是直接返回-1
+		  panic("wait for a process that is not a child.\n");
+      return -1;
+    }
+    //确认了pid是当前进程的子进程，等待的pid则直接设置为指定值，等待子进程返回
+    current->status = BLOCKED;
+    current->waiting_pid = pid;
+    schedule();
+    return pid;
+  }
+  else{
+		panic("wait for pid 0 is not allowed.\n");
+    return -1;
+  }
+}
+
 //
 // [a0]: the syscall number; [a1] ... [a7]: arguments to the syscalls.
 // returns the code of success, (e.g., 0 means success, fail for otherwise)
@@ -264,6 +291,10 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long a6, l
       return sys_user_link((char *)a1, (char *)a2);
     case SYS_user_unlink:
       return sys_user_unlink((char *)a1);
+    case SYS_user_exec:
+      return sys_user_exec((char *)a1, (char *)a2);
+    case SYS_user_wait:
+      return sys_user_wait(a1);
     default:
       panic("Unknown syscall %ld \n", a0);
   }

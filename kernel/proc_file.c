@@ -10,6 +10,8 @@
 #include "ramdev.h"
 #include "rfs.h"
 #include "riscv.h"
+#include "elf.h"
+#include "vmm.h"
 #include "spike_interface/spike_file.h"
 #include "spike_interface/spike_utils.h"
 #include "util/functions.h"
@@ -220,4 +222,42 @@ int do_link(char *oldpath, char *newpath) {
 //
 int do_unlink(char *path) {
   return vfs_unlink(path);
+}
+
+
+int do_exec(char *path, const char* argv) {
+  	// 在释放内存前，将参数保存
+	int PathLen = strlen(path);
+	char path_[PathLen + 1];
+	strcpy(path_, path);
+	int ArgLen = strlen(argv);
+	char arg[ArgLen + 1];
+	strcpy(arg, argv);
+
+	// 释放当前进程的资源
+	exec_clean(current);
+
+  // sprint("checking at do_exec\n");
+
+	// sprint("origin sp is %lx\n", current->trapframe->regs.sp);
+	// 一级指针
+	uint64 argv_va = current->trapframe->regs.sp - ArgLen - 1;
+	argv_va = argv_va - argv_va % 8; // 按8字节对齐(方便指针指向该位置) 
+	uint64 argv_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argv_va);
+	strcpy((char *)argv_pa, arg);
+
+	// 二级指针
+	uint64 argvs_va = argv_va - 8; // 因为目前只考虑一个参数，故而一级指针只构建一个，二级指针的位置目前就设定在一级指针后面，并且这一区域的大小刚好只是一个指针的大小
+	uint64 argvs_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argvs_va);
+	*(uint64 *)argvs_pa = argv_va; // 存储一级指针的虚地址
+
+	current->trapframe->regs.a0 = 1; // 设置argc的值(此处为1)
+	current->trapframe->regs.a1 = argvs_va; // 设置argv的值
+	current->trapframe->regs.sp = argvs_va - argvs_va % 16; // 按照16对齐
+
+	// sprint("next sp is %lx\n", current->trapframe->regs.sp);
+
+	load_bincode_from_host_elf(current, path_); // 此处修改了s态切换到用户态的返回地址
+	// sprint("do_exec function will return\n");
+  return -1;
 }

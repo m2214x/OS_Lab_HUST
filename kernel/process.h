@@ -81,6 +81,8 @@ typedef struct process_t {
 
   // process id
   uint64 pid;
+  // pid that parent is waiting for. added @lab3_challenge1
+  uint64 waiting_pid;
   // process status
   int status;
   // parent process
@@ -109,5 +111,8 @@ int do_fork(process* parent);
 
 // current running process
 extern process* current;
+
+// added @ lab4_challenge3
+void exec_clean(process* p);
 
 #endif
