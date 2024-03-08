@@ -265,23 +265,23 @@ int do_fork( process* parent)
         break;
             //TODO (lab3_challeng1_wait) : implment the mapping of child data segment to parent's
       //此处代码基本可以参考lab3_1的代码
-      // case DATA_SEGMENT:
-      // {        
-      //   child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
-      //   child->mapped_info[child->total_mapped_region].npages = parent->mapped_info[i].npages;
-      //   child->mapped_info[child->total_mapped_region].seg_type = DATA_SEGMENT;
-      //   for(int j=0;j<child->mapped_info[child->total_mapped_region].npages;j++)
-      //   {
-      //     uint64 child_pa = (uint64)alloc_page();
-      //     memcpy((void*)child_pa,(void*)lookup_pa(parent->pagetable,parent->mapped_info[i].va+j*PGSIZE),PGSIZE);
-      //     user_vm_map((pagetable_t)child->pagetable,parent->mapped_info[i].va+j*PGSIZE,PGSIZE,child_pa,prot_to_type(PROT_WRITE | PROT_READ,1));
-      //   }
+      case DATA_SEGMENT:
+      {        
+        child->mapped_info[child->total_mapped_region].va = parent->mapped_info[i].va;
+        child->mapped_info[child->total_mapped_region].npages = parent->mapped_info[i].npages;
+        child->mapped_info[child->total_mapped_region].seg_type = DATA_SEGMENT;
+        for(int j=0;j<child->mapped_info[child->total_mapped_region].npages;j++)
+        {
+          uint64 child_pa = (uint64)alloc_page();
+          memcpy((void*)child_pa,(void*)lookup_pa(parent->pagetable,parent->mapped_info[i].va+j*PGSIZE),PGSIZE);
+          user_vm_map((pagetable_t)child->pagetable,parent->mapped_info[i].va+j*PGSIZE,PGSIZE,child_pa,prot_to_type(PROT_WRITE | PROT_READ,1));
+        }
         
-      //   // after mapping, register the vm region (do not delete codes below!)
+        // after mapping, register the vm region (do not delete codes below!)
 
-      //   child->total_mapped_region++;
-      //   break;
-      // }
+        child->total_mapped_region++;
+        break;
+      }
     }
   }
 
@@ -299,7 +299,8 @@ void exec_clean(process* p) {
   // 释放原进程的数据段、代码段和堆栈段
   int cnt=0;
   for(int i=0;i<p->total_mapped_region;i++){
-      if(p->mapped_info[i].seg_type == CODE_SEGMENT || p->mapped_info[i].seg_type == DATA_SEGMENT || p->mapped_info[i].seg_type == STACK_SEGMENT){
+      if(//p->mapped_info[i].seg_type == CODE_SEGMENT || 
+          p->mapped_info[i].seg_type == DATA_SEGMENT || p->mapped_info[i].seg_type == STACK_SEGMENT){
           void* pa = user_va_to_pa(p->pagetable, (void*)p->mapped_info[i].va);
           user_vm_unmap(p->pagetable, p->mapped_info[i].va, p->mapped_info[i].npages * PGSIZE, 1);
           current->mapped_info[i].va = 0;

@@ -226,38 +226,46 @@ int do_unlink(char *path) {
 
 
 int do_exec(char *path, const char* argv) {
-  	// 在释放内存前，将参数保存
+  // 提前保存会被释放的参数
+  // sprint("checking at do_exec\n");
 	int PathLen = strlen(path);
 	char path_[PathLen + 1];
 	strcpy(path_, path);
-	int ArgLen = strlen(argv);
-	char arg[ArgLen + 1];
+	int argv_len = strlen(argv);
+	char arg[argv_len + 1];
 	strcpy(arg, argv);
 
 	// 释放当前进程的资源
 	exec_clean(current);
 
-  // sprint("checking at do_exec\n");
-
+  
+  //
+  // confirm the instruction
+  // 额外的一些说明：这里的代码是为了将参数传递给用户程序，因为用户程序的参数是通过栈传递的；
+  // 但是这里的代码是在内核态，所以需要将参数放到用户态的栈中。要做的事有以下这些：
+  // 1. 首先将参数放到用户态的栈中
+  // 2. 然后将参数的地址放到用户态的栈中
+  // 3. 最后将用户态的栈指针放到寄存器中
+  // 4. 最后加载用户程序
+  // 另外：在这个地方需要注意两件事，第一个是由于是栈，参数的传递是从后往前的；
+  // 第二个是由于是栈，所以需要考虑对齐
 	// sprint("origin sp is %lx\n", current->trapframe->regs.sp);
-	// 一级指针
-	uint64 argv_va = current->trapframe->regs.sp - ArgLen - 1;
-	argv_va = argv_va - argv_va % 8; // 按8字节对齐(方便指针指向该位置) 
-	uint64 argv_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argv_va);
-	strcpy((char *)argv_pa, arg);
+	uint64 instruction_va = current->trapframe->regs.sp - argv_len - 1;
+	instruction_va = instruction_va - instruction_va % 8; //用于指针对齐
+	uint64 instuction_pa = (uint64)user_va_to_pa(current->pagetable, (void *)instruction_va);
+	strcpy((char *)instuction_pa, arg);   // 指令的位置对应完毕
 
-	// 二级指针
-	uint64 argvs_va = argv_va - 8; // 因为目前只考虑一个参数，故而一级指针只构建一个，二级指针的位置目前就设定在一级指针后面，并且这一区域的大小刚好只是一个指针的大小
-	uint64 argvs_pa = (uint64)user_va_to_pa(current->pagetable, (void *)argvs_va);
-	*(uint64 *)argvs_pa = argv_va; // 存储一级指针的虚地址
+	uint64 super_va = instruction_va - 8; //二级指针，指向指令，但位置上就放在一级指针的后面
+	uint64 super_pa = (uint64)user_va_to_pa(current->pagetable, (void *)super_va);
+	*(uint64 *)super_pa = instruction_va; 
 
-	current->trapframe->regs.a0 = 1; // 设置argc的值(此处为1)
-	current->trapframe->regs.a1 = argvs_va; // 设置argv的值
-	current->trapframe->regs.sp = argvs_va - argvs_va % 16; // 按照16对齐
-
+	current->trapframe->regs.a0 = 1;          // argc,理论上1就够，因为只用到一个参数
+	current->trapframe->regs.a1 = super_va;   // argv,也即指令的具体内容
+	current->trapframe->regs.sp = super_va - super_va % 16; // 堆栈寄存器，指向栈顶位置
 	// sprint("next sp is %lx\n", current->trapframe->regs.sp);
 
-	load_bincode_from_host_elf(current, path_); // 此处修改了s态切换到用户态的返回地址
-	// sprint("do_exec function will return\n");
+
+	load_bincode_from_host_elf(current, path_); 
+	// sprint("never return or have errors\n");
   return -1;
 }
